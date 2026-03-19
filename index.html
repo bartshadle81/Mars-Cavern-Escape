@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mars Cavern Escape</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#070006; display:flex; align-items:center; justify-content:center; min-height:100vh; flex-direction:column; }
+  #wrap { display:flex; flex-direction:column; align-items:center; position:relative; }
+  canvas { display:block; image-rendering:pixelated; border:3px solid #661100; border-bottom:none; box-shadow:0 0 50px rgba(255,60,0,0.35),0 0 100px rgba(200,20,0,0.12); width:418px; height:540px; }
+
+  /* Answer input bar */
+  #inputBar { display:none; align-items:center; justify-content:center; gap:10px; background:#0e0005; border:3px solid #661100; border-top:2px solid #330800; padding:10px 20px 12px; width:418px; }
+  #inputLabel { font-family:'Press Start 2P',monospace; font-size:9px; color:#664422; letter-spacing:1px; }
+  #answerInput { font-family:'Press Start 2P',monospace; font-size:22px; background:#0d0008; color:#ffcc00; border:2px solid #ff4400; padding:7px 12px; width:120px; text-align:center; outline:none; caret-color:#ffcc00; -moz-appearance:textfield; }
+  #answerInput::-webkit-inner-spin-button,#answerInput::-webkit-outer-spin-button{-webkit-appearance:none;}
+  #answerInput:focus { border-color:#ff8800; box-shadow:0 0 12px rgba(255,136,0,0.45); }
+  #submitBtn { font-family:'Press Start 2P',monospace; font-size:10px; background:#cc2200; color:#fff; border:2px solid #ff4400; padding:10px 14px; cursor:pointer; letter-spacing:1px; }
+  #submitBtn:hover{background:#ee3300;} #submitBtn:active{background:#991800;}
+
+  /* Entry panel overlay */
+  #entryPanel {
+    display:none; position:absolute; top:0; left:0;
+    width:418px; height:540px;
+    flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(5,0,10,0.93);
+    border:3px solid #661100;
+    box-sizing:border-box; padding:24px 36px; gap:0; z-index:10;
+  }
+  .ep-title { font-family:'Press Start 2P',monospace; font-size:13px; color:#ff8800; letter-spacing:2px; margin-bottom:3px; }
+  .ep-title2 { font-family:'Press Start 2P',monospace; font-size:13px; color:#ffcc00; letter-spacing:2px; margin-bottom:12px; }
+  .ep-div { width:100%; height:1px; background:#2a0800; margin-bottom:12px; }
+  .ep-tlabel { font-family:'Press Start 2P',monospace; font-size:7px; color:#664422; margin-bottom:5px; }
+  #epTime { font-family:'Press Start 2P',monospace; font-size:30px; color:#fff; text-shadow:0 0 14px rgba(255,200,0,0.6); margin-bottom:6px; }
+  #epHint { font-family:'Press Start 2P',monospace; font-size:7px; color:#88aacc; margin-bottom:16px; }
+  .ep-div2 { width:100%; height:1px; background:#1a0005; margin-bottom:16px; }
+  .ep-label { font-family:'Press Start 2P',monospace; font-size:7px; color:#664422; align-self:flex-start; margin-bottom:5px; }
+  #nameInput { font-family:'Press Start 2P',monospace; font-size:13px; background:#0d0008; color:#ffcc00; border:2px solid #ff4400; padding:9px 12px; width:100%; outline:none; caret-color:#ffcc00; margin-bottom:12px; }
+  #nameInput:focus { border-color:#ff8800; box-shadow:0 0 10px rgba(255,136,0,0.4); }
+  #periodSelect { font-family:'Press Start 2P',monospace; font-size:9px; background:#0d0008; color:#ffcc00; border:2px solid #551100; padding:8px 10px; width:100%; outline:none; cursor:pointer; margin-bottom:16px; appearance:none; -webkit-appearance:none; }
+  #periodSelect:focus { border-color:#882200; }
+  #nameError { font-family:'Press Start 2P',monospace; font-size:7px; color:#ff5544; min-height:14px; margin-bottom:8px; align-self:flex-start; }
+  .ep-btns { display:flex; gap:10px; width:100%; }
+  #submitScoreBtn { font-family:'Press Start 2P',monospace; font-size:9px; background:#aa2200; color:#fff; border:2px solid #ff4400; padding:12px 8px; cursor:pointer; flex:2; }
+  #submitScoreBtn:hover{background:#cc3300;} #submitScoreBtn:disabled{background:#330000;color:#553333;cursor:not-allowed;border-color:#330800;}
+  #skipBtn { font-family:'Press Start 2P',monospace; font-size:7px; background:transparent; color:#553333; border:2px solid #220800; padding:12px 6px; cursor:pointer; flex:1; }
+  #skipBtn:hover{color:#886655;border-color:#440800;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="480" height="620"></canvas>
+
+  <!-- Entry panel — shown after game over -->
+  <div id="entryPanel">
+    <div class="ep-title">MISSION</div>
+    <div class="ep-title2">REPORT</div>
+    <div class="ep-div"></div>
+    <div class="ep-tlabel">TIME SURVIVED</div>
+    <div id="epTime">0:00.00</div>
+    <div id="epHint"></div>
+    <div class="ep-div2"></div>
+    <div class="ep-label">YOUR NAME</div>
+    <input id="nameInput" type="text" maxlength="20" placeholder="Enter name..." autocomplete="off" spellcheck="false" />
+    <div class="ep-label">PERIOD (OPTIONAL)</div>
+    <select id="periodSelect">
+      <option value="">— skip —</option>
+      <option value="1">Period 1</option>
+      <option value="2">Period 2</option>
+      <option value="3">Period 3</option>
+      <option value="4">Period 4</option>
+      <option value="5">Period 5</option>
+      <option value="6">Period 6</option>
+      <option value="7">Period 7</option>
+    </select>
+    <div id="nameError"></div>
+    <div class="ep-btns">
+      <button id="submitScoreBtn">▶ SUBMIT SCORE</button>
+      <button id="skipBtn">SKIP</button>
+    </div>
+  </div>
+
+  <!-- Gameplay answer bar -->
+  <div id="inputBar">
+    <span id="inputLabel">ANSWER:</span>
+    <input id="answerInput" type="number" placeholder="?" autocomplete="off" />
+    <button id="submitBtn">ENTER</button>
+  </div>
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════╗
+//   MARS CAVERN ESCAPE  —  Phase 2 (with leaderboard)
+//   Discovery Middle School Explorers
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ── Replace this after deploying your Apps Script ───────────────
+const SCRIPT_URL = 'https://script.google.com/a/macros/ocps.net/s/AKfycbxWNOUeQHtzwn9_exZm9k1nrxlFShu4bFod2chrcvDEMADwa8RkQ-tJ05yq6R4B76-7/exec';
+
+// ── Word filter ─────────────────────────────────────────────────
+const BAD_WORDS = ['ass','damn','shit','fuck','hell','bitch','crap','piss',
+  'dick','cock','pussy','fag','nigger','nigga','bastard','whore','slut',
+  'penis','vagina','boob','tit','nude','porn','wtf','stfu'];
+function hasBadWord(str) {
+  const s = str.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return BAD_WORDS.some(w => s.includes(w));
+}
+
+// ── DOM refs ────────────────────────────────────────────────────
+const canvas         = document.getElementById('c');
+const ctx            = canvas.getContext('2d');
+const answerInput    = document.getElementById('answerInput');
+const answerBtn      = document.getElementById('submitBtn');
+const inputBar       = document.getElementById('inputBar');
+const entryPanel     = document.getElementById('entryPanel');
+const nameInput      = document.getElementById('nameInput');
+const periodSel      = document.getElementById('periodSelect');
+const nameError      = document.getElementById('nameError');
+const submitScoreBtn = document.getElementById('submitScoreBtn');
+const skipBtn        = document.getElementById('skipBtn');
+
+const W=480, H=620, CM=54, P=3, CAMR=0.38;
+const PLAT_W=128, PLAT_H=14;
+
+// ── Tunable lava constants ──────────────────────────────────────
+const PLAT_START_GAP = 220;
+const LAVA_BASE      = 22.0;
+const LAVA_ACCEL     = 0.14;
+const SURGE_WRONG    = 45;
+const JUMP_MIN       = 55;
+const JUMP_MAX       = 85;
+const JUMP_TIME_CAP  = 8;
+
+// ── World / camera ──────────────────────────────────────────────
+let platY=0, lavaY=0;
+function wts(wy){ return H*CAMR + platY - wy; }
+
+// ── Game state ──────────────────────────────────────────────────
+// INTRO | PLAYING | ENTRY | LEADERBOARD
+let STATE='INTRO', elapsed=0, survivalTime=0, lastTs=null;
+let problem=null, qStart=0;
+let wrongFlash=0, correctFlash=0, wrongShake=0, lavaWave=0;
+let screenShake=0, shakeX=0, shakeY=0, bobTime=0;
+let particles=[], lavaParticles=[], bgRocks=[];
+
+// ── Leaderboard state ───────────────────────────────────────────
+let lbData=null, lbTab=0, lbLoading=false, lbError=false;
+const TAB_LABELS=['DAILY','WEEKLY','HALL OF FAME'];
+
+// ── Helpers ─────────────────────────────────────────────────────
+function fmtTime(t){
+  const m=Math.floor(t/60), s=Math.floor(t%60), cs=Math.floor((t%1)*100);
+  return `${m}:${s.toString().padStart(2,'0')}.${cs.toString().padStart(2,'0')}`;
+}
+function getHint(t){
+  if(t<30)  return "You're learning the route!";
+  if(t<90)  return 'Nice run, Explorer!';
+  if(t<180) return 'Strong mission, Explorer!';
+  if(t<300) return 'Outstanding survival!';
+  return 'LEGEND STATUS!';
+}
+function fillRect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x,y,w,h);}
+function drawText(str,x,y,size,col,align='center'){
+  ctx.fillStyle=col; ctx.font=`${size}px "Press Start 2P",monospace`;
+  ctx.textAlign=align; ctx.textBaseline='middle'; ctx.fillText(str,x,y);
+}
+
+// ── Background rocks ────────────────────────────────────────────
+function initRocks(){
+  bgRocks=[];
+  for(let i=0;i<70;i++) bgRocks.push({
+    side:Math.random()<0.5?'L':'R', wy:Math.random()*9000-200,
+    depth:Math.random()*22+6, ht:Math.random()*18+8, shade:Math.floor(Math.random()*35+12)
+  });
+}
+
+// ── Problem generation ──────────────────────────────────────────
+function newProblem(){
+  const a=Math.floor(Math.random()*12)+1, b=Math.floor(Math.random()*12)+1;
+  problem={a,b,answer:a*b}; qStart=elapsed;
+  answerInput.value=''; answerInput.focus();
+}
+
+// ── Jetpack particles ───────────────────────────────────────────
+function spawnJetpack(){
+  const bpX=(W-PLAT_W)/2+PLAT_W/2-4*P+8*P+1;
+  const bpY=H*CAMR-9*P;
+  for(let i=0;i<14;i++){
+    const angle=Math.PI/2+(Math.random()-0.5)*0.9;
+    const speed=Math.random()*3.5+1.5;
+    particles.push({x:bpX+(Math.random()-0.5)*4,y:bpY,
+      vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
+      life:1.0,decay:Math.random()*0.06+0.04,size:Math.random()*4+2,hot:i<5});
+  }
+}
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy*=1.04; p.vx*=0.95; p.life-=p.decay;
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+function drawParticles(){
+  for(const p of particles){
+    const a=p.life;
+    ctx.fillStyle=p.hot?`rgba(255,${Math.floor(160*a)},0,${a})`:`rgba(${Math.floor(180*a)},${Math.floor(180*a)},${Math.floor(180*a)},${a*0.7})`;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size*a,0,Math.PI*2); ctx.fill();
+  }
+}
+
+
+// ── Wall decorations ─────────────────────────────────────────────
+const WALL_DECO = [
+  {wy:480,   side:'R', type:'CRYSTALS', teal:false},
+  {wy:900,   side:'L', type:'WARNING'},
+  {wy:1300,  side:'R', type:'DEAD_ASTRO'},
+  {wy:1750,  side:'L', type:'ALIEN'},
+  {wy:2200,  side:'R', type:'SHIP'},
+  {wy:2700,  side:'L', type:'CRYSTALS', teal:true},
+  {wy:3200,  side:'R', type:'BONES'},
+  {wy:3700,  side:'L', type:'DEAD_ASTRO'},
+  {wy:4300,  side:'R', type:'WARNING'},
+  {wy:4900,  side:'L', type:'CRYSTALS', teal:false},
+  {wy:5500,  side:'R', type:'ALIEN'},
+  {wy:6200,  side:'L', type:'SHIP'},
+  {wy:6900,  side:'R', type:'CRYSTALS', teal:true},
+  {wy:7700,  side:'L', type:'BONES'},
+  {wy:8500,  side:'R', type:'DEAD_ASTRO'},
+];
+
+function drawWallDecorations() {
+  WALL_DECO.forEach(d => {
+    const sy = wts(d.wy);
+    if (sy < -120 || sy > H + 120) return;
+    const isL = d.side === 'L';
+    const ax  = isL ? CM : W - CM;
+
+    // px(ox, oy, pw, ph, col)
+    // ox = screen pixels from wall inner edge into cave
+    // oy = screen pixels from center (negative = up)
+    // For left wall: draws rightward (into cave). For right: leftward (into cave).
+    function px(ox, oy, pw, ph, col) {
+      const x = isL ? ax + ox : ax - ox - pw;
+      fillRect(x, sy + oy, pw, ph, col);
+    }
+
+    if      (d.type==='DEAD_ASTRO') drawDecoDeadAstro(px);
+    else if (d.type==='ALIEN')      drawDecoAlien(px, isL, sy);
+    else if (d.type==='CRYSTALS')   drawDecoCrystals(px, d.teal, ax, sy, isL);
+    else if (d.type==='WARNING')    drawDecoWarning(px);
+    else if (d.type==='SHIP')       drawDecoShip(px);
+    else if (d.type==='BONES')      drawDecoBones(px);
+  });
+}
+
+// Dead astronaut slumped against wall
+function drawDecoDeadAstro(px) {
+  // helmet
+  px(5,  -34, 14, 2,  '#c0d0dc');
+  px(3,  -32, 18, 10, '#c0d0dc');
+  px(1,  -30, 2,   6, '#a8bcc8');
+  px(21, -30, 2,   6, '#a8bcc8');
+  // cracked visor
+  px(5,  -31, 12, 7,  '#0d1f2e');
+  px(8,  -31, 1,  4,  '#1e3348'); // crack
+  px(11, -30, 1,  3,  '#1e3348'); // crack 2
+  // X eyes in visor
+  px(6,  -30, 2, 2, '#ff3333');
+  px(8,  -28, 2, 2, '#ff3333');
+  px(8,  -30, 2, 2, '#ff3333');
+  px(6,  -28, 2, 2, '#ff3333');
+  px(13, -30, 2, 2, '#ff3333');
+  px(15, -28, 2, 2, '#ff3333');
+  px(15, -30, 2, 2, '#ff3333');
+  px(13, -28, 2, 2, '#ff3333');
+  // helmet base ring
+  px(3, -23, 18, 2, '#a8bcc8');
+  // body slumped
+  px(4,  -21, 14, 14, '#a8b8c4');
+  px(4,  -15, 14, 3,  '#cc3a00'); // orange stripe
+  // backpack
+  px(18, -21, 5, 10, '#7a8899');
+  px(19, -19, 3,  6, '#667788');
+  // legs splayed
+  px(0,  -7,  8, 5, '#8899aa');
+  px(16, -7,  8, 5, '#8899aa');
+  px(0,  -3,  6, 7, '#607080');  // left boot
+  px(18, -3,  6, 7, '#607080');  // right boot
+  px(0,  -3,  6, 2, '#8099aa');  // boot highlight
+  px(18, -3,  6, 2, '#8099aa');
+  // one glove reaching out
+  px(-4, -19, 4, 4, '#ddcc00');
+  // shadow pool
+  px(-2,  4,  28, 3, 'rgba(0,0,0,0.35)');
+}
+
+// Alien peeking from a wall crack
+function drawDecoAlien(px, isL, sy) {
+  // crack in the wall
+  px(-4, -30, 4, 60, '#0a0202');
+  px(-3, -28, 2, 56, '#120404');
+  // alien body (green, partially emerging)
+  px(0,  -22, 12, 36, '#1a4a18');
+  px(1,  -24, 10, 4,  '#1d5a1a'); // head top
+  // big eyes (yellow with slit pupil)
+  px(1,  -20, 10, 9, '#e8e040'); // eye whites
+  px(4,  -19,  4, 7, '#111100'); // pupils
+  px(5,  -19,  2, 7, '#000000'); // slit
+  px(2,  -20,  2, 2, '#ffffff'); // left shine
+  px(9,  -20,  1, 2, '#ffffff'); // right shine
+  // claws gripping crack edge
+  px(-2, -14, 3, 2, '#2a5a22');
+  px(-3, -10, 4, 2, '#2a5a22');
+  px(-2,  -6, 3, 2, '#2a5a22');
+  px(-3,  -2, 4, 2, '#2a5a22');
+  px(-2,   2, 3, 2, '#2a5a22');
+  // antenna
+  px(5,  -28, 2, 6, '#1a4a18');
+  px(4,  -30, 4, 4, '#ffff44'); // glowing tip
+  // tentacle snaking out
+  px(12,  4,  5, 3, '#1a5a18');
+  px(16,  6,  5, 3, '#1a5a18');
+  px(20,  8,  4, 3, '#1a5a18');
+  px(23,  6,  3, 3, '#1a5a18');
+}
+
+// Crystal cluster growing from wall
+function drawDecoCrystals(px, isTeal, ax, sy, isL) {
+  const cBase = isTeal ? '#005544' : '#330066';
+  const cMid  = isTeal ? '#009977' : '#6600bb';
+  const cTip  = isTeal ? '#88ffdd' : '#dd88ff';
+  const glow  = isTeal ? '#00ffcc' : '#cc00ff';
+
+  ctx.shadowColor = glow;
+  ctx.shadowBlur  = 14;
+
+  // Crystal 1 — tall center
+  px(5,  -36, 4, 2, cTip);
+  px(4,  -34, 6, 4, cMid);
+  px(3,  -30, 8, 6, cMid);
+  px(2,  -24,10,10, cBase);
+  // Crystal 2 — short left
+  px(0,  -24, 4, 2, cTip);
+  px(0,  -22, 5, 4, cMid);
+  px(0,  -18, 6, 8, cBase);
+  // Crystal 3 — medium right
+  px(12, -28, 4, 2, cTip);
+  px(11, -26, 6, 4, cMid);
+  px(10, -22, 7, 8, cBase);
+  // Crystal 4 — tiny far right
+  px(16, -20, 2, 1, cTip);
+  px(15, -19, 4, 3, cMid);
+  px(15, -16, 5, 6, cBase);
+  // Base
+  px(0,  -10,22, 6, '#110a11');
+  // Highlight streaks on crystals
+  px(6,  -34, 1, 6, 'rgba(255,255,255,0.4)');
+  px(1,  -22, 1, 4, 'rgba(255,255,255,0.3)');
+  px(12, -26, 1, 5, 'rgba(255,255,255,0.3)');
+
+  ctx.shadowBlur = 0;
+}
+
+// Faded warning sign with skull
+function drawDecoWarning(px) {
+  // mounting bracket
+  px(0, -36, 2, 44, '#3a2200');
+  // sign plate
+  px(2,  -36, 26, 30, '#4a2800');
+  px(3,  -35, 24, 28, '#5c3300');
+  px(3,  -35, 24,  2, '#7a4a00'); // top edge highlight
+  // inner border
+  px(5,  -33, 20, 24, '#221000');
+  // skull dome
+  px(9,  -31, 12, 8, '#bdb09a');
+  px(7,  -29, 16, 6, '#bdb09a');
+  // skull eye sockets
+  px(9,  -29, 4,  4, '#221000');
+  px(15, -29, 4,  4, '#221000');
+  // skull nose cavity
+  px(12, -26, 4,  3, '#221000');
+  // skull teeth
+  px(8,  -23, 12,  2, '#bdb09a');
+  px(8,  -23,  2,  4, '#bdb09a');
+  px(12, -23,  2,  4, '#bdb09a');
+  px(16, -23,  2,  4, '#bdb09a');
+  // crossbones
+  px(6,  -20, 16,  2, '#aaa090');
+  px(11, -24,  2, 12, '#aaa090');
+  px(5,  -21,  4,  4, '#aaa090');
+  px(19, -21,  4,  4, '#aaa090');
+  px(5,  -13,  4,  4, '#aaa090');
+  px(19, -13,  4,  4, '#aaa090');
+  // corner bolts
+  px(3,  -35, 3, 3, '#886622');
+  px(24, -35, 3, 3, '#886622');
+  px(3,   -8, 3, 3, '#886622');
+  px(24,  -8, 3, 3, '#886622');
+  // shadow
+  px(0,  -5, 28, 3, 'rgba(0,0,0,0.4)');
+}
+
+// Crashed spaceship wreckage embedded in wall
+function drawDecoShip(px) {
+  // hull chunk embedded in wall (partially in, partially out)
+  px(-8, -20, 20, 14, '#3a4d5c');
+  px(-8, -20, 20,  3, '#4d6070'); // top edge lit
+  px(-6, -17,  4,  6, '#1a2a36'); // window dark
+  px(-5, -16,  2,  4, '#223344'); // window tint
+  // wing sticking into cave
+  px(12, -28, 18,  6, '#3a4d5c');
+  px(12, -28, 18,  2, '#4d6070');
+  px(28, -26,  4,  8, '#2a3a48'); // wing tip
+  // engine nacelle
+  px(-8, -14,  8,  6, '#2a3a48');
+  px(-8, -10,  8,  4, '#cc4400'); // engine glow
+  px(-8,  -8,  8,  2, '#ff7700');
+  // fire/sparks coming from break
+  px(10,  -8,  4, 12, '#ff4400');
+  px(11,  -9,  2, 10, '#ff8800');
+  px(12,  -6,  3,  8, '#ffcc00');
+  // debris scattered
+  px(18,  -4,  4,  4, '#3a4d5c');
+  px(24,  -8,  3,  3, '#3a4d5c');
+  px(22,   0,  4,  4, '#2a3a48');
+  // scrape marks on wall from crash
+  px(-10, -32, 2, 16, '#1a0e06');
+  px(-9,  -28, 1, 12, '#1a0e06');
+  // shadow
+  px(-8,   4,  40,  4, 'rgba(0,0,0,0.5)');
+}
+
+// Ancient skeleton on the wall
+function drawDecoBones(px) {
+  // Skull
+  px(4,  -42, 14,  2, '#ccc0a0');
+  px(3,  -40, 16, 10, '#ccc0a0');
+  px(1,  -36, 20,  6, '#ccc0a0');
+  // Eye sockets
+  px(4,  -38,  5,  5, '#1a1208');
+  px(13, -38,  5,  5, '#1a1208');
+  // Nose
+  px(9,  -34,  4,  3, '#1a1208');
+  // Teeth
+  px(4,  -31, 14,  2, '#ccc0a0');
+  px(4,  -31,  2,  4, '#ccc0a0');
+  px(7,  -31,  2,  4, '#ccc0a0');
+  px(10, -31,  2,  4, '#ccc0a0');
+  px(13, -31,  2,  4, '#ccc0a0');
+  px(5,  -30, 12,  2, '#1a1208'); // jaw gap
+  // Neck
+  px(9,  -29,  4,  4, '#bbb09a');
+  // Ribcage
+  px(6,  -25, 10, 12, '#bbb09a');  // spine/center
+  px(2,  -24,  4,  2, '#bbb09a'); // rib L1
+  px(16, -24,  4,  2, '#bbb09a'); // rib R1
+  px(2,  -21,  4,  2, '#bbb09a'); // rib L2
+  px(16, -21,  4,  2, '#bbb09a'); // rib R2
+  px(2,  -18,  4,  2, '#bbb09a'); // rib L3
+  px(16, -18,  4,  2, '#bbb09a'); // rib R3
+  px(3,  -15,  4,  2, '#bbb09a'); // rib L4
+  px(15, -15,  4,  2, '#bbb09a'); // rib R4
+  // Arm bones pinned to wall
+  px(0,  -26,  2, 14, '#bbb09a'); // left upper arm
+  px(0,  -12,  2, 14, '#bbb09a'); // left forearm
+  px(20, -26,  2, 14, '#bbb09a'); // right upper arm
+  px(20, -12,  2, 14, '#bbb09a'); // right forearm
+  // Hip/pelvis
+  px(4,  -13, 14,  4, '#bbb09a');
+  px(2,  -11, 18,  2, '#bbb09a');
+  // Leg bones
+  px(5,   -9,  3, 18, '#bbb09a'); // left femur
+  px(14,  -9,  3, 18, '#bbb09a'); // right femur
+  px(5,    9,  3, 14, '#bbb09a'); // left shin
+  px(14,   9,  3, 14, '#bbb09a'); // right shin
+  // Foot bones
+  px(3,   22,  8,  3, '#bbb09a');
+  px(14,  22,  8,  3, '#bbb09a');
+  // Aged shadow
+  px(0,   25, 24,  4, 'rgba(0,0,0,0.4)');
+}
+
+
+// ── Lava surge particles ─────────────────────────────────────────
+function spawnLavaSurge() {
+  const lavaSY = wts(lavaY);
+  const caveW  = W - CM * 2;
+  for (let i = 0; i < 22; i++) {
+    const x = CM + 20 + Math.random() * (caveW - 40);
+    const angle = -(Math.PI * 0.3 + Math.random() * Math.PI * 0.4); // upward arc
+    const speed = Math.random() * 7 + 3;
+    lavaParticles.push({
+      x, y: lavaSY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1.0,
+      decay: Math.random() * 0.04 + 0.025,
+      size: Math.random() * 5 + 2,
+      hot: Math.random() < 0.5,
+    });
+  }
+}
+
+function updateLavaParticles(dt) {
+  for (let i = lavaParticles.length - 1; i >= 0; i--) {
+    const p = lavaParticles[i];
+    p.x    += p.vx;
+    p.y    += p.vy;
+    p.vy   += 0.28; // gravity
+    p.life -= p.decay;
+    if (p.life <= 0) lavaParticles.splice(i, 1);
+  }
+}
+
+function drawLavaParticles() {
+  for (const p of lavaParticles) {
+    const a = p.life;
+    ctx.fillStyle = p.hot
+      ? `rgba(255,${Math.floor(120 + 80*a)},0,${a})`
+      : `rgba(200,${Math.floor(40*a)},0,${a * 0.8})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ── Screen shake ─────────────────────────────────────────────────
+function updateScreenShake() {
+  if (screenShake > 0) {
+    shakeX = (Math.random() - 0.5) * screenShake * 0.6;
+    shakeY = (Math.random() - 0.5) * screenShake * 0.4;
+    screenShake = Math.max(0, screenShake - 1.4);
+  } else {
+    shakeX = 0; shakeY = 0;
+  }
+}
+
+function calcJump(rt){
+  const t=Math.max(0.5,Math.min(rt,JUMP_TIME_CAP));
+  return JUMP_MAX-(JUMP_MAX-JUMP_MIN)*((t-0.5)/(JUMP_TIME_CAP-0.5));
+}
+
+// ── Answer handling ─────────────────────────────────────────────
+function submitAnswer(){
+  if(STATE!=='PLAYING') return;
+  const raw=answerInput.value.trim(); if(!raw) return;
+  const val=parseInt(raw,10); if(isNaN(val)){answerInput.value='';return;}
+  if(val===problem.answer){
+    platY+=calcJump(elapsed-qStart); correctFlash=14; spawnJetpack(); newProblem(); screenShake=4;
+  } else {
+    lavaY+=SURGE_WRONG; wrongFlash=22; wrongShake=12; screenShake=18; spawnLavaSurge();
+    answerInput.value=''; answerInput.focus();
+  }
+}
+
+// ── Start game ──────────────────────────────────────────────────
+function startGame(){
+  platY=PLAT_START_GAP; lavaY=0; elapsed=0;
+  wrongFlash=0; correctFlash=0; wrongShake=0; lavaWave=0; particles=[];
+  lbData=null; lbLoading=false; lbError=false;
+  entryPanel.style.display='none'; inputBar.style.display='flex';
+  STATE='PLAYING'; initRocks(); newProblem();
+}
+
+// ── Show entry panel ────────────────────────────────────────────
+function showEntry(){
+  survivalTime=elapsed; inputBar.style.display='none';
+  document.getElementById('epTime').textContent=fmtTime(survivalTime);
+  document.getElementById('epHint').textContent=getHint(survivalTime);
+  nameInput.value=''; periodSel.value=''; nameError.textContent='';
+  submitScoreBtn.disabled=false; submitScoreBtn.textContent='▶ SUBMIT SCORE';
+  entryPanel.style.display='flex';
+  setTimeout(()=>nameInput.focus(),60);
+  STATE='ENTRY';
+}
+
+// ── Submit score to Apps Script ─────────────────────────────────
+async function submitScore(){
+  const name=nameInput.value.trim();
+  if(!name){ nameError.textContent='Please enter a name!'; return; }
+  if(hasBadWord(name)){ nameError.textContent='Please choose a different name.'; return; }
+  nameError.textContent='';
+  submitScoreBtn.disabled=true; submitScoreBtn.textContent='SENDING...';
+
+  if(SCRIPT_URL!=='YOUR_APPS_SCRIPT_URL_HERE'){
+    try {
+      await fetch(SCRIPT_URL,{
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name,period:periodSel.value,time:survivalTime})
+      });
+    } catch(e){}
+  }
+  await loadLeaderboard(name);
+}
+
+// ── Load & display leaderboard ──────────────────────────────────
+async function loadLeaderboard(submittedName){
+  entryPanel.style.display='none';
+  lbData=null; lbLoading=true; lbError=false; lbTab=0;
+  STATE='LEADERBOARD';
+
+  if(SCRIPT_URL==='YOUR_APPS_SCRIPT_URL_HERE'){
+    lbLoading=false;
+    lbData={daily:[],weekly:[],allTime:[],placeholder:true,submittedName:submittedName||''};
+    return;
+  }
+  try{
+    const res=await fetch(SCRIPT_URL+'?t='+Date.now());
+    lbData=await res.json();
+    lbData.submittedName=submittedName||'';
+  } catch(e){ lbError=true; }
+  lbLoading=false;
+}
+
+// ── Update ──────────────────────────────────────────────────────
+function update(dt){
+  if(STATE!=='PLAYING') return;
+  elapsed+=dt; lavaY+=(LAVA_BASE+LAVA_ACCEL*elapsed)*dt; lavaWave+=dt*55;
+  if(wrongFlash>0)   wrongFlash--;
+  if(correctFlash>0) correctFlash--;
+  if(wrongShake>0)   wrongShake--;
+  bobTime += dt;
+  updateParticles(dt);
+  updateLavaParticles(dt);
+  updateScreenShake();
+  if(lavaY>=platY) showEntry();
+}
+
+// ── Draw: background ────────────────────────────────────────────
+function drawBackground(){
+  const bg=ctx.createLinearGradient(CM,0,CM,H);
+  bg.addColorStop(0,'#0b0418'); bg.addColorStop(0.5,'#130820'); bg.addColorStop(1,'#1e0a0a');
+  ctx.fillStyle=bg; ctx.fillRect(CM,0,W-CM*2,H);
+  bgRocks.forEach(r=>{
+    const sy=wts(r.wy); if(sy<-30||sy>H+30) return;
+    const c=r.shade;
+    ctx.fillStyle=`rgb(${c+8},${Math.floor(c*0.45)},${Math.floor(c*0.25)})`;
+    if(r.side==='L') ctx.fillRect(CM-1,sy-r.ht/2,r.depth,r.ht);
+    else ctx.fillRect(W-CM+1-r.depth,sy-r.ht/2,r.depth,r.ht);
+  });
+}
+
+// ── Draw: walls ─────────────────────────────────────────────────
+function drawWalls(){
+  const lw=ctx.createLinearGradient(0,0,CM,0);
+  lw.addColorStop(0,'#120700'); lw.addColorStop(0.65,'#1f0e00'); lw.addColorStop(1,'#160900');
+  ctx.fillStyle=lw; ctx.fillRect(0,0,CM,H);
+  const rw=ctx.createLinearGradient(W-CM,0,W,0);
+  rw.addColorStop(0,'#160900'); rw.addColorStop(0.35,'#1f0e00'); rw.addColorStop(1,'#120700');
+  ctx.fillStyle=rw; ctx.fillRect(W-CM,0,CM,H);
+  ctx.strokeStyle='#0b0400'; ctx.lineWidth=1;
+  for(let y=0;y<H+30;y+=26){
+    const st=(Math.floor(y/26)%2===0)?0:12;
+    ctx.beginPath(); ctx.moveTo(st,y); ctx.lineTo(CM-3,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W-CM+3,y); ctx.lineTo(W-st,y); ctx.stroke();
+  }
+  ctx.strokeStyle='#3c1400'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(CM,0); ctx.lineTo(CM,H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W-CM,0); ctx.lineTo(W-CM,H); ctx.stroke();
+}
+
+// ── Draw: astronaut ─────────────────────────────────────────────
+function drawAstronaut(){
+  const sy=wts(platY); if(sy>H+60) return;
+  const bob = Math.sin(bobTime * 2.2) * 2.5;
+  const baseX=(W-PLAT_W)/2+PLAT_W/2-4*P, baseY=sy-14*P+bob;
+  const gap=platY-lavaY;
+  let ox=gap<130?Math.sin(Date.now()*0.024)*2.5:0;
+  if(wrongShake>0) ox+=(wrongShake%4<2)?3:-3;
+  const a=baseX+ox,b=baseY;
+  fillRect(a+2*P,b+0*P,4*P,P,'#dce8f0');
+  fillRect(a+1*P,b+1*P,6*P,4*P,'#dce8f0');
+  fillRect(a+0*P,b+2*P,P,2*P,'#c8d8e4');
+  fillRect(a+7*P,b+2*P,P,2*P,'#c8d8e4');
+  fillRect(a+2*P,b+1*P,4*P,3*P,'#1a3a5c');
+  fillRect(a+2*P,b+1*P,P,P,'#4d90d4');
+  fillRect(a+3*P,b+1*P,P,P,'#3a78b8');
+  fillRect(a+1*P,b+4*P,6*P,P,'#b8c8d4');
+  fillRect(a+1*P,b+5*P,6*P,6*P,'#dce8f0');
+  fillRect(a+1*P,b+7*P,6*P,P,'#e04800');
+  fillRect(a+7*P,b+4*P,2*P,5*P,'#a8bcc8');
+  fillRect(a+8*P,b+5*P,P,3*P,'#7a9aaa');
+  fillRect(a+0*P,b+5*P,P,4*P,'#dce8f0');
+  fillRect(a+7*P,b+5*P,P,4*P,'#dce8f0');
+  fillRect(a+0*P,b+8*P,P,P,'#ffcc00');
+  fillRect(a+7*P,b+8*P,P,P,'#ffcc00');
+  fillRect(a+2*P,b+10*P,2*P,3*P,'#ccd6e0');
+  fillRect(a+4*P,b+10*P,2*P,3*P,'#ccd6e0');
+  fillRect(a+1*P,b+12*P,3*P,2*P,'#7a8899');
+  fillRect(a+4*P,b+12*P,3*P,2*P,'#7a8899');
+  fillRect(a+1*P,b+12*P,3*P,P,'#9aaabb');
+  fillRect(a+4*P,b+12*P,3*P,P,'#9aaabb');
+}
+
+// ── Draw: lava ──────────────────────────────────────────────────
+function drawLava(){
+  const lavaSY=wts(lavaY); if(lavaSY>H+25) return;
+  const glowH=70;
+  const gl=ctx.createLinearGradient(0,lavaSY-glowH,0,lavaSY);
+  gl.addColorStop(0,'rgba(255,80,0,0)'); gl.addColorStop(1,'rgba(255,55,0,0.2)');
+  ctx.fillStyle=gl; ctx.fillRect(CM,lavaSY-glowH,W-CM*2,glowH);
+  const caveW=W-CM*2;
+  ctx.beginPath(); ctx.moveTo(CM,lavaSY);
+  for(let x=0;x<=caveW;x+=3){
+    const wave=Math.sin((x+lavaWave)*0.09)*5+Math.sin((x-lavaWave*0.6)*0.14)*3;
+    ctx.lineTo(CM+x,lavaSY+wave);
+  }
+  ctx.lineTo(W-CM,H+5); ctx.lineTo(CM,H+5); ctx.closePath();
+  const lg=ctx.createLinearGradient(0,lavaSY,0,Math.min(lavaSY+220,H));
+  lg.addColorStop(0,'#ff7700'); lg.addColorStop(0.06,'#ff3a00');
+  lg.addColorStop(0.25,'#cc1500'); lg.addColorStop(0.65,'#7a0500'); lg.addColorStop(1,'#330000');
+  ctx.fillStyle=lg; ctx.fill();
+  const t=Date.now()*0.001;
+  for(let i=0;i<6;i++){
+    const bx=CM+28+i*(caveW/6)+Math.sin(t*1.3+i*1.1)*17;
+    const by=lavaSY+8+Math.sin(t*2.1+i*0.85)*6;
+    if(by>lavaSY-1){
+      const r=4+Math.sin(t*3+i)*1.5;
+      ctx.beginPath(); ctx.arc(bx,by,r,0,Math.PI*2); ctx.fillStyle='#ffaa22'; ctx.fill();
+      ctx.beginPath(); ctx.arc(bx-1,by-1.5,r*0.4,0,Math.PI*2); ctx.fillStyle='#ffdd88'; ctx.fill();
+    }
+  }
+}
+
+// ── Draw: HUD ───────────────────────────────────────────────────
+function drawHUD(){
+  const gap=platY-lavaY;
+  const mins=Math.floor(elapsed/60), secs=Math.floor(elapsed%60);
+  fillRect(W-CM-126,8,118,32,'rgba(0,0,0,0.55)');
+  drawText(`${mins}:${secs.toString().padStart(2,'0')}`,W-CM-10,24,14,'#ffcc00','right');
+  if(problem){
+    const dp=gap<170?0.55+0.45*Math.sin(Date.now()*0.009):1;
+    const pCol=wrongFlash>0?'#ff4444':correctFlash>0?'#44ffaa':gap<170?`rgba(255,${Math.floor(160*dp)},0,1)`:'#ffe44e';
+    fillRect(CM+4,8,W-CM*2-132,32,'rgba(0,0,0,0.55)');
+    drawText(`${problem.a} × ${problem.b} = ?`,CM+4+(W-CM*2-132)/2,24,14,pCol);
+  }
+  if(wrongFlash>0){ctx.fillStyle=`rgba(255,0,0,${(wrongFlash/22)*0.3})`;ctx.fillRect(0,0,W,H);}
+  if(correctFlash>0){ctx.fillStyle=`rgba(0,255,120,${(correctFlash/14)*0.18})`;ctx.fillRect(0,0,W,H);}
+  if(gap<150){
+    const alpha=0.65+0.35*Math.sin(Date.now()*0.013);
+    ctx.fillStyle=`rgba(255,40,0,${alpha})`; ctx.font='15px "Press Start 2P",monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('⚠  DANGER  ⚠',W/2,H-20);
+  }
+  // Music toggle button (top-left)
+  fillRect(CM+4, 8, 32, 32, 'rgba(0,0,0,0.55)');
+  drawText(musicOn ? '♪' : '✕', CM+20, 24, 11, musicOn ? '#ffcc00' : '#553333');
+}
+
+// ── Draw: intro ─────────────────────────────────────────────────
+function drawIntro(){
+  fillRect(0,0,W,H,'#0b0416');
+  const lg=ctx.createLinearGradient(0,H-100,0,H);
+  lg.addColorStop(0,'#ff5500'); lg.addColorStop(0.2,'#cc1500'); lg.addColorStop(1,'#330000');
+  ctx.fillStyle=lg; ctx.fillRect(0,H-100,W,100);
+  const hg=ctx.createLinearGradient(0,H-150,0,H-100);
+  hg.addColorStop(0,'rgba(255,80,0,0)'); hg.addColorStop(1,'rgba(255,70,0,0.22)');
+  ctx.fillStyle=hg; ctx.fillRect(0,H-150,W,50);
+  ctx.beginPath(); ctx.moveTo(0,H-100);
+  for(let x=0;x<=W;x+=4) ctx.lineTo(x,H-100+Math.sin(x*0.08+Date.now()*0.002)*5);
+  ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath(); ctx.fillStyle='#ff6600'; ctx.fill();
+  drawWalls();
+  ctx.shadowColor='#ff3300'; ctx.shadowBlur=35;
+  drawText('MARS CAVERN',W/2,108,23,'#ff6000');
+  drawText('ESCAPE',W/2,146,23,'#ffcc00');
+  ctx.shadowBlur=0;
+  const ax=W/2-4*P,ay=172;
+  fillRect(ax+1*P,ay+0*P,6*P,5*P,'#dce8f0'); fillRect(ax+2*P,ay+0*P,4*P,3*P,'#1a3a5c');
+  fillRect(ax+2*P,ay+0*P,P,P,'#4d90d4');     fillRect(ax+1*P,ay+5*P,6*P,6*P,'#dce8f0');
+  fillRect(ax+1*P,ay+7*P,6*P,P,'#e04800');   fillRect(ax+2*P,ay+10*P,2*P,3*P,'#ccd6e0');
+  fillRect(ax+4*P,ay+10*P,2*P,3*P,'#ccd6e0');
+  ctx.fillStyle='#7799bb'; ctx.font='9px "Press Start 2P",monospace';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('"Explorer! A cavern opened',W/2,218);
+  ctx.fillText('beneath your feet.',W/2,236);
+  ctx.fillText('Lava is rising. Solve fast',W/2,254);
+  ctx.fillText('or get cooked."',W/2,272);
+  ctx.fillStyle='#445566'; ctx.font='8px "Press Start 2P",monospace';
+  ctx.fillText('— Discovery Mission Control',W/2,292);
+  const pulse=0.7+0.3*Math.sin(Date.now()*0.004);
+  ctx.fillStyle='#7799bb'; ctx.font='10px "Press Start 2P",monospace';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('Survive as long as you can!',W/2,328);
+  const bx=W/2-110,by=352,bw=220,bh=48;
+  ctx.fillStyle=`rgba(180,38,0,${pulse})`; ctx.fillRect(bx,by,bw,bh);
+  ctx.strokeStyle=`rgba(255,88,0,${pulse})`; ctx.lineWidth=2; ctx.strokeRect(bx,by,bw,bh);
+  drawText('▶  PLAY',W/2,by+bh/2,14,'#ffffff');
+
+  // Leaderboard button
+  const lbx=W/2-110,lby=412,lbw=220,lbh=40;
+  ctx.fillStyle='rgba(20,5,35,0.85)'; ctx.fillRect(lbx,lby,lbw,lbh);
+  ctx.strokeStyle='rgba(120,60,180,0.7)'; ctx.lineWidth=2; ctx.strokeRect(lbx,lby,lbw,lbh);
+  drawText('🏆  LEADERBOARD',W/2,lby+lbh/2,9,'#cc99ff');
+
+  ctx.fillStyle='#2d1a0a'; ctx.font='7px "Press Start 2P",monospace';
+  ctx.fillText('DISCOVERY MIDDLE SCHOOL  ·  EXPLORERS',W/2,472);
+
+  // Music toggle button on intro
+  const mtx=W-CM-44, mty=8, mts=36;
+  fillRect(mtx, mty, mts, mts, 'rgba(0,0,0,0.55)');
+  ctx.strokeStyle = musicOn ? '#886600' : '#330000'; ctx.lineWidth=1;
+  ctx.strokeRect(mtx, mty, mts, mts);
+  drawText(musicOn ? '♪' : '✕', mtx+mts/2, mty+mts/2, 14, musicOn ? '#ffcc00' : '#553333');
+}
+
+// ── Draw: leaderboard ───────────────────────────────────────────
+function drawLeaderboard(){
+  drawBackground(); drawWalls();
+  ctx.fillStyle='rgba(5,0,10,0.88)'; ctx.fillRect(0,0,W,H);
+
+  ctx.shadowColor='#ff4400'; ctx.shadowBlur=18;
+  drawText('LEADERBOARD',W/2,36,13,'#ff8800');
+  ctx.shadowBlur=0;
+
+  const px=CM+8, pw=W-CM*2-16, tabW=pw/3, tabH=26, tabY=58;
+  TAB_LABELS.forEach((label,i)=>{
+    const tx=px+i*tabW, active=i===lbTab;
+    ctx.fillStyle=active?'#3a0800':'#110002';
+    ctx.fillRect(tx,tabY,tabW,tabH);
+    ctx.strokeStyle=active?'#ff4400':'#2a0600';
+    ctx.lineWidth=active?2:1; ctx.strokeRect(tx,tabY,tabW,tabH);
+    drawText(label,tx+tabW/2,tabY+tabH/2,6,active?'#ffcc00':'#553322');
+  });
+
+  const listY=tabY+tabH+6, rowH=37;
+
+  if(lbLoading){
+    drawText('LOADING...',W/2,listY+80,9,'#553311'); return;
+  }
+  if(lbError){
+    drawText('COULD NOT CONNECT',W/2,listY+60,7,'#773322');
+    drawText('CHECK SCRIPT URL',W/2,listY+80,7,'#442211');
+  } else if(lbData){
+    const lists=[lbData.daily||[],lbData.weekly||[],lbData.allTime||[]];
+    const scores=lists[lbTab];
+    if(lbData.placeholder){
+      drawText('LEADERBOARD NOT YET',W/2,listY+55,7,'#332211');
+      drawText('CONNECTED.',W/2,listY+73,7,'#332211');
+      drawText('SEE SETUP INSTRUCTIONS.',W/2,listY+91,6,'#221508');
+    } else if(scores.length===0){
+      drawText('NO SCORES YET!',W/2,listY+60,9,'#443322');
+      drawText('BE THE FIRST.',W/2,listY+82,8,'#332211');
+    } else {
+      scores.slice(0,8).forEach((s,i)=>{
+        const ry=listY+i*rowH;
+        const isMe=lbData.submittedName&&s.name===lbData.submittedName;
+        ctx.fillStyle=isMe?'rgba(80,40,0,0.5)':(i%2===0?'rgba(255,255,255,0.022)':'rgba(0,0,0,0.08)');
+        ctx.fillRect(px,ry,pw,rowH-2);
+        if(isMe){ ctx.strokeStyle='rgba(255,180,0,0.2)'; ctx.lineWidth=1; ctx.strokeRect(px,ry,pw,rowH-2); }
+
+        const rankCols=['#ffcc00','#b0b0cc','#cc7744','#666666'];
+        drawText(`#${i+1}`,px+18,ry+rowH/2,8,rankCols[Math.min(i,3)]);
+
+        ctx.font='8px "Press Start 2P",monospace'; ctx.textAlign='left'; ctx.textBaseline='middle';
+        let dname=s.name;
+        while(ctx.measureText(dname).width>148&&dname.length>1) dname=dname.slice(0,-1);
+        if(dname!==s.name) dname+='..';
+        ctx.fillStyle=isMe?'#ffee88':'#ccbbaa';
+        ctx.fillText(dname,px+36,ry+rowH/2-(s.period?5:0));
+        if(s.period){
+          ctx.fillStyle='#443322'; ctx.font='6px "Press Start 2P",monospace';
+          ctx.fillText(`P${s.period}`,px+36,ry+rowH/2+8);
+        }
+        drawText(fmtTime(parseFloat(s.time)),px+pw-8,ry+rowH/2,9,isMe?'#ffcc00':'#886633','right');
+      });
+    }
+  }
+
+  // Buttons row
+  const pulse=0.7+0.3*Math.sin(Date.now()*0.004);
+  // Back button
+  const bbx=CM+8,bby=H-58,bbw=90,bbh=44;
+  ctx.fillStyle='rgba(15,5,25,0.85)'; ctx.fillRect(bbx,bby,bbw,bbh);
+  ctx.strokeStyle='rgba(100,50,160,0.7)'; ctx.lineWidth=2; ctx.strokeRect(bbx,bby,bbw,bbh);
+  drawText('◀ BACK',bbx+bbw/2,bby+bbh/2,7,'#aa88dd');
+  // Play again button
+  const bx=bbx+bbw+8,by=H-58,bw=W-CM*2-16-bbw-8,bh=44;
+  ctx.fillStyle=`rgba(140,30,0,${pulse})`; ctx.fillRect(bx,by,bw,bh);
+  ctx.strokeStyle=`rgba(255,70,0,${pulse})`; ctx.lineWidth=2; ctx.strokeRect(bx,by,bw,bh);
+  drawText('▶  PLAY AGAIN',bx+bw/2,by+bh/2,11,'#ffffff');
+}
+
+
+
+// ── Chiptune Music Engine ────────────────────────────────────────
+//   D-minor Cheetahmen-inspired track, tempo shifts with danger
+// ────────────────────────────────────────────────────────────────
+let audioCtx     = null;
+let musicOn      = true;
+let musicStarted = false;
+
+const NOTE_FREQ = {
+  'D2': 73.42,'F2': 87.31,'G2': 98.00,'A2':110.00,
+  'D3':146.83,'E3':164.81,'F3':174.61,'G3':196.00,'A3':220.00,'Bb3':233.08,'C3':130.81,
+  'C4':261.63,'D4':293.66,'E4':329.63,'F4':349.23,'G4':392.00,'A4':440.00,'Bb4':466.16,'C5':523.25,
+};
+const AMB_VOL = 0.18;
+
+function getMCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+// Square-wave melody / lead note
+function mn(freq, t, dur, vol, type='square') {
+  if (!freq || !musicOn) return;
+  const ac = getMCtx();
+  const osc = ac.createOscillator(), gain = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  osc.connect(gain); gain.connect(ac.destination);
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(vol, t + 0.008);
+  gain.gain.setValueAtTime(vol * 0.8, t + dur * 0.65);
+  gain.gain.linearRampToValueAtTime(0, t + dur);
+  osc.start(t); osc.stop(t + dur + 0.01);
+}
+
+// Triangle-wave bass
+function mBass(freq, t, dur, vol) { mn(freq, t, dur, vol, 'triangle'); }
+
+// Noise-based drums
+function mDrum(type, t, vol) {
+  if (!musicOn) return;
+  const ac = getMCtx();
+  const len = Math.ceil(ac.sampleRate * 0.15);
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d   = buf.getChannelData(0);
+  const dec = type==='kick' ? 1.2 : type==='snare' ? 2.5 : 6.0;
+  for (let i=0; i<len; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, dec);
+  const src=ac.createBufferSource(), g=ac.createGain();
+  src.buffer=buf; src.connect(g); g.connect(ac.destination);
+  if (type==='kick') {
+    const o=ac.createOscillator(), og=ac.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(190, t);
+    o.frequency.exponentialRampToValueAtTime(34, t+0.10);
+    og.gain.setValueAtTime(vol, t);
+    og.gain.linearRampToValueAtTime(0, t+0.12);
+    o.connect(og); og.connect(ac.destination);
+    o.start(t); o.stop(t+0.15);
+    g.gain.setValueAtTime(vol*0.20, t);
+  } else if (type==='snare') {
+    g.gain.setValueAtTime(vol*0.62, t);
+  } else {
+    g.gain.setValueAtTime(vol*0.16, t);
+  }
+  g.gain.linearRampToValueAtTime(0, t+(type==='hihat'?0.04:0.13));
+  src.start(t); src.stop(t+0.16);
+}
+
+// ── Sequences (128 steps = 8 bars of 16th notes) ─────────────────
+// 4 distinct sections of 2 bars each so loop takes ~25s at 152bpm
+
+// Lead melody — all notes kept in 3rd/4th octave, no 5th octave
+const M_MEL = [
+  // SECTION A — bars 1-2: main heroic riff
+  'D4', null, 'A3', null, 'F4', 'E4', 'D4',  null,
+  'C4', null, 'A3','Bb3', 'C4', 'D4', 'E4',  null,
+  'F4', null, 'C4', null, 'A4', 'G4', 'F4',  null,
+  'E4', 'D4', 'C4', null, 'D4', null,  null,  null,
+
+  // SECTION B — bars 3-4: answer phrase, lower register
+  'A3', null, 'F3', null, 'G3', 'A3', 'C4',  null,
+  'D4', null, 'C4', 'A3', 'G3', 'F3', 'G3',  null,
+  'A3', 'C4', 'D4', null, 'E4', 'D4', 'C4',  null,
+  'A3',  null, null, null, 'A3', null,  null,  null,
+
+  // SECTION C — bars 5-6: climbing run, builds tension
+  'D4', 'E4', 'F4', 'G4', 'A4',  null, 'G4',  null,
+  'F4', 'E4', 'D4',  null, 'C4', 'D4', 'E4',  null,
+  'F4',  null, 'G4',  null, 'A4', 'G4', 'F4',  null,
+  'E4', 'D4',  null,  null, 'D4',  null, null,  null,
+
+  // SECTION D — bars 7-8: breakdown / breather, sparse
+  'D4',  null,  null,  null, 'F4',  null,  null,  null,
+  'A3',  null, 'C4',  null, 'D4', 'E4',  null,  null,
+  'F4',  null, 'E4',  null, 'D4', 'C4', 'A3',   null,
+  'G3',  null,  null,  null, 'D4',  null,  null,  null,
+];
+
+// Arpeggio layer — 128 steps matching sections above
+const M_ARP = [
+  // Section A
+  'D3','F3','A3','C4', 'D3','F3','A3','C4',
+  'A2','C3','E3','G3', 'A2','C3','E3','G3',
+  'F2','A2','C3','E3', 'F2','A2','C3','E3',
+  'G2','Bb3','D3','F3','G2','Bb3','D3','F3',
+  // Section B
+  'A2','C3','E3','G3', 'A2','C3','E3','G3',
+  'F2','A2','C3','E3', 'F2','A2','C3','E3',
+  'D3','F3','A3','C4', 'D3','F3','A3','C4',
+  'G2','Bb3','D3','F3','A2','C3','E3','G3',
+  // Section C
+  'D3','F3','A3','C4', 'D3','F3','A3','C4',
+  'A2','C3','E3','G3', 'F2','A2','C3','E3',
+  'Bb3','D3','F3','A3','Bb3','D3','F3','A3',
+  'A2','C3','E3','G3', 'D3','F3','A3','C4',
+  // Section D — sparser, quarter-note feel
+  'D3', null, 'F3', null, 'A3', null, 'C4', null,
+  'A2', null, 'C3', null, 'E3', null, 'G3', null,
+  'F2', null, 'A2', null, 'C3', null, 'E3', null,
+  'G2', null,'Bb3', null, 'D3', null, 'F3', null,
+];
+
+// Bass — 32 notes (one per quarter note across 8 bars)
+const M_BASS = [
+  'D3','A3','F3','C4','D3','A3','G3','A3',  // section A
+  'A2','F3','G3','A3','D3','A3','F3','G3',  // section B
+  'D3','F3','A3','Bb3','D3','F3','A3','G3', // section C
+  'D3','D3','A2','A2','F3','F3','D3','D3',  // section D
+];
+
+let mNextTime=0, mStep=0, mTimer=null;
+const M_AHEAD=0.13, M_TICK=50;
+
+function getMBPM() {
+  if (STATE !== 'PLAYING') return 152;
+  const gap = Math.max(0, platY - lavaY);
+  const d   = Math.max(0, Math.min(1, 1 - gap / 260));
+  return 152 + d * 34;   // 152 BPM normal → 186 BPM at max danger
+}
+
+function mSchedule() {
+  const ac = getMCtx();
+  while (mNextTime < ac.currentTime + M_AHEAD) {
+    const s  = mStep % 128;
+    const sd = 60 / getMBPM() / 4;   // 16th-note duration in seconds
+    if (M_MEL[s])        mn(NOTE_FREQ[M_MEL[s]],        mNextTime, sd*0.82, 0.30);
+    if (M_ARP[s])        mn(NOTE_FREQ[M_ARP[s]],        mNextTime, sd*0.45, 0.09);
+    if (s%4===0)   mBass(NOTE_FREQ[M_BASS[Math.floor(s/4)%32]], mNextTime, sd*3.7, 0.18);
+    if (s%8===0)   mDrum('kick',  mNextTime, 0.50);
+    if (s%8===4)   mDrum('snare', mNextTime, 0.44);
+    if (s%2===0)   mDrum('hihat', mNextTime, 0.17);
+    mNextTime += sd;
+    mStep++;
+  }
+  mTimer = setTimeout(mSchedule, M_TICK);
+}
+
+function tryStartMusic() {
+  if (musicStarted) return;
+  musicStarted = true;
+  const ac = getMCtx();
+  const go = () => { mNextTime = ac.currentTime + 0.08; mStep = 0; mSchedule(); };
+  if (ac.state === 'suspended') ac.resume().then(go); else go();
+}
+
+function toggleMusic() {
+  musicOn = !musicOn;
+}
+
+// ── Vignette / danger darkening ──────────────────────────────────
+function drawVignette() {
+  const gap     = platY - lavaY;
+  const danger  = Math.max(0, Math.min(1, 1 - gap / 300));
+  const alpha   = 0.18 + danger * 0.52;
+
+  const vg = ctx.createRadialGradient(W/2, H/2, H*0.18, W/2, H/2, H*0.82);
+  vg.addColorStop(0,   'rgba(0,0,0,0)');
+  vg.addColorStop(0.6, `rgba(10,0,0,${alpha * 0.4})`);
+  vg.addColorStop(1,   `rgba(${Math.floor(60*danger)},0,0,${alpha})`);
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ── Game loop ────────────────────────────────────────────────────
+function frame(ts){
+  const dt=lastTs?Math.min((ts-lastTs)/1000,0.05):0; lastTs=ts;
+  update(dt); ctx.clearRect(0,0,W,H);
+  if(STATE==='INTRO')        drawIntro();
+  else if(STATE==='PLAYING') { ctx.save(); ctx.translate(shakeX,shakeY); drawBackground();drawWalls();drawWallDecorations();drawLava();drawLavaParticles();drawAstronaut();drawParticles();drawHUD();drawVignette(); ctx.restore(); }
+  else if(STATE==='ENTRY')   { ctx.save(); ctx.translate(shakeX,shakeY); drawBackground();drawWalls();drawWallDecorations();drawLava();drawLavaParticles();drawAstronaut();drawVignette(); ctx.restore(); }
+  else if(STATE==='LEADERBOARD') drawLeaderboard();
+  requestAnimationFrame(frame);
+}
+
+// ── Click handling ───────────────────────────────────────────────
+canvas.addEventListener('click',e=>{
+  const r=canvas.getBoundingClientRect();
+  const mx=(e.clientX-r.left)*(W/r.width), my=(e.clientY-r.top)*(H/r.height);
+  if(STATE==='INTRO'){
+    const mtx=W-CM-44, mty=8, mts=36;
+    if(mx>mtx&&mx<mtx+mts&&my>mty&&my<mty+mts){ toggleMusic(); tryStartMusic(); return; }
+    if(mx>W/2-110&&mx<W/2+110&&my>352&&my<400) startGame();
+    if(mx>W/2-110&&mx<W/2+110&&my>412&&my<452) loadLeaderboard('');
+  } else if(STATE==='PLAYING'){
+    if(mx>CM+4&&mx<CM+36&&my>8&&my<40) toggleMusic();
+  } else if(STATE==='LEADERBOARD'){
+    const px=CM+8,pw=W-CM*2-16,tabW=pw/3,tabH=26,tabY=58;
+    if(my>=tabY&&my<=tabY+tabH){
+      const ti=Math.floor((mx-px)/tabW);
+      if(ti>=0&&ti<3){lbTab=ti;return;}
+    }
+    const bbx=CM+8,bby=H-58,bbw=90,bbh=44;
+    if(mx>bbx&&mx<bbx+bbw&&my>bby&&my<bby+bbh){STATE='INTRO';return;}
+    const bx=bbx+bbw+8,by=H-58,bw=W-CM*2-16-bbw-8,bh=44;
+    if(mx>bx&&mx<bx+bw&&my>by&&my<by+bh) startGame();
+  }
+});
+
+// Start music on first interaction
+document.addEventListener('keydown', tryStartMusic);
+document.addEventListener('click',   tryStartMusic);
+answerInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submitAnswer();}});
+answerBtn.addEventListener('click',submitAnswer);
+submitScoreBtn.addEventListener('click',submitScore);
+skipBtn.addEventListener('click',()=>loadLeaderboard(''));
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter') submitScore();});
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
